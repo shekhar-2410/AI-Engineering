@@ -22,9 +22,7 @@ load_dotenv(override=True)
 api_key = os.getenv("OPENAI_API_KEY")
 
 # Choose LLM Client:
-# If you have an OpenAI key in .env, use OpenAI.
-# If not, fall back to local Ollama (free local model).
-if api_key:
+if api_key and api_key.strip():
     client = OpenAI(api_key=api_key)
     MODEL = "gpt-4o-mini"
     print(f"Using OpenAI model: {MODEL}")
@@ -32,13 +30,14 @@ else:
     # Local Ollama fallback (requires Ollama running: `ollama run llama3.2`)
     client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
     MODEL = "llama3.2"
-    print(f"No OPENAI_API_KEY found. Defaulting to local Ollama model: {MODEL}")
+    print("Notice: No OPENAI_API_KEY found in .env.")
+    print(f"Defaulting to local Ollama model: '{MODEL}' (run `ollama pull llama3.2` if not yet downloaded).\n")
 
 
 # ---------------------------------------------------------------------------
 # Step 2: Define System & User Prompts
 # ---------------------------------------------------------------------------
-# System prompt defines the persona and rules for the AI
+# The system prompt defines the role and behavior for the model
 SYSTEM_PROMPT = """You are a helpful executive assistant.
 Analyze the provided website contents and produce a clear, concise summary.
 Highlight:
@@ -49,7 +48,7 @@ Highlight:
 
 def summarize_website(url: str) -> str:
     """Fetch website text and generate an AI summary."""
-    print(f"\n1. Fetching website content from: {url}")
+    print(f"1. Fetching website content from: {url}")
     website_text = fetch_website_contents(url)
 
     if not website_text.strip():
@@ -63,14 +62,21 @@ def summarize_website(url: str) -> str:
         {"role": "user", "content": user_prompt}
     ]
 
-    # Step 3: Call the Chat Completion API
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        temperature=0.7,
-    )
-
-    return response.choices[0].message.content
+    try:
+        # Step 3: Call the Chat Completion API
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return (
+            f"\n[Error calling LLM]: {e}\n\n"
+            "Quick Fix Options:\n"
+            "Option A: Put your OpenAI key into .env (`OPENAI_API_KEY=sk-proj-...`)\n"
+            "Option B: Run `ollama pull llama3.2` in your terminal to use local offline models."
+        )
 
 
 # ---------------------------------------------------------------------------
